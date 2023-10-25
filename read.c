@@ -1,17 +1,35 @@
 #include <stdio.h>
-#include <stdlib.h> /* atoi */
+#include <stdlib.h>
 
-int main(int argc, char **argv)
-{
-    if (argc != 2)
-    {
-        fprintf(stderr, "The number of arguments is incorrect.\n");
-        return 1;
+int main(int argc, char **argv) {
+  if (argc != 2) {
+    fprintf(stderr, "引数の個数が正しくありません\n");
+    return 1;
+  }
+
+  char *p = argv[1];
+
+  printf(".globl main\n");
+  printf("main:\n");
+  printf("\tmovq $%ld, %%rax\n", strtol(p, &p, 10));
+
+  while (*p) {
+    if (*p == '+') {
+      p++;
+      printf("\taddq $%ld, %%rax\n", strtol(p, &p, 10));
+      continue;
     }
 
-    printf(".globl main\n");
-    printf("main:\n");
-    printf("\tmovq $%d,%%rax\n", atoi(argv[1]));
-    printf("\tret\n");
-    return 0;
+    if (*p == '-') {
+      p++;
+      printf("\tsubq $%ld, %%rax\n", strtol(p, &p, 10));
+      continue;
+    }
+
+    fprintf(stderr, "予期しない文字です: '%c'\n", *p);
+    return 1;
+  }
+
+  printf("\tretq\n");
+  return 0;
 }
