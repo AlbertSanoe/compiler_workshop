@@ -1,0 +1,66 @@
+# compile option
+CC = gcc
+CFLAGS=-c -std=c11 -g
+LDFLAGS=-lm
+WFLAGS =-Wall
+DEPFLAG= -MM
+
+# file tree
+#TOPDIR =$(shell dirname $$PWD)
+TOPDIR = ..
+BINDIR = $(TOPDIR)/bin
+OBJDIR = $(TOPDIR)/obj
+SRCDIR = $(TOPDIR)/src
+DEPDIR = $(TOPDIR)/dep
+
+ALL_OBJFILES=$(wildcard $(OBJDIR)/*.o)
+EXECUTABLE = chibicc
+
+DIRNAME_CODEGEN= codegen 
+DIRNAME_LEXER = lexer 
+DIRNAME_PARSER = parser
+
+PATH_LOCAL = $(SRCDIR)
+PATH_CODEGEN = $(SRCDIR)/$(DIRNAME_CODEGEN)
+PATH_LEXER = $(SRCDIR)/$(DIRNAME_LEXER)
+PATH_PARSER = $(SRCDIR)/$(DIRNAME_PARSER)
+
+ALL_OBJFILES=$(wildcard $(OBJDIR)/*.o)
+
+LOCAL_FLAG=global
+DELIMITER=@
+LOCAL_OBJ_PREFIX=$(OBJDIR)/$(LOCAL_FLAG)$(DELIMITER)
+LOCAL_DEP_PREFIX=$(DEPDIR)/$(LOCAL_FLAG)$(DELIMITER)
+LOCAL_FILES =$(wildcard $(PATH_LOCAL)/*.c)
+LOCAL_OBJFILES =$(LOCAL_FILES:$(PATH_LOCAL)/%.c=$(LOCAL_OBJ_PREFIX)%.o)
+LOCAL_DEPFILES =$(LOCAL_FILES:$(PATH_LOCAL)/%.c=$(LOCAL_DEP_PREFIX)%.d)
+
+.PHONY: local
+
+
+
+
+
+-include $(LOCAL_DEPFILES)
+$(LOCAL_OBJ_PREFIX)%.o:%.c
+	$(CC) $(CFLAGS) $< -o $@
+
+$(LOCAL_DEP_PREFIX)%.d:%.c
+	$(CC) $(DEPFLAG) $< | sed '1s|^|'"$(LOCAL_OBJ_PREFIX)"'|' > $@
+
+local: $(LOCAL_DEPFILES) $(LOCAL_OBJFILES)
+
+clean: 
+	rm -rf $(DEPDIR)/*
+	rm -rf $(OBJDIR)/*
+
+info:
+	echo $(TOPDIR)
+	echo $(SRCDIR)
+
+
+
+
+
+
+
