@@ -144,8 +144,21 @@ static TokenPtr new_token(TokenKind kind, char *start, char *end) {
   return tok;
 }
 
+static bool startswith(char *p, char *q) {
+  return strncmp(p, q, strlen(q)) == 0;
+}
+
+// Read a punctuator token from p and returns its length.
+static int read_punct(char *p) {
+  if (startswith(p, "==") || startswith(p, "!=") || startswith(p, "<=") ||
+      startswith(p, ">="))
+    return 2;
+
+  return ispunct(*p) ? 1 : 0;
+}
+
 // Tokenize `p` and returns new tokens.
-TokenList tokenize() {
+static TokenList tokenize() {
   char *p = current_input;
   Token head = {};
   head.next = NULL;
@@ -165,14 +178,14 @@ TokenList tokenize() {
       char *q = p;
       cur->val = strtoul(p, &p, 10);
       cur->len = p - q;
-      // printf("%s %d: the current len is %d\n", __FILE__, __LINE__, cur->len);
       continue;
     }
 
     // Punctuators
-    if (ispunct(*p)) {
-      cur = cur->next = new_token(TK_PUNCT, p, p + 1);
-      p++;
+    int punct_len = read_punct(p);
+    if (punct_len) {
+      cur = cur->next = new_token(TK_PUNCT, p, p + punct_len);
+      p += cur->len;
       continue;
     }
 
@@ -194,6 +207,10 @@ typedef enum {
   ND_MUL, // *
   ND_DIV, // /
   ND_NEG, // unary -
+  ND_EQ,  // ==
+  ND_NE,  // !=
+  ND_LT,  // <
+  ND_LE,  // <=
   ND_NUM, // Integer
 } NodeKind;
 
@@ -235,6 +252,11 @@ void debug_node(NodePtr node_ptr) {
   case ND_NEG:
     printf("-");
     break;
+  case ND_EQ:
+  case ND_NE:
+  case ND_LT:
+  case ND_LE:
+    break;
   }
 }
 
@@ -274,75 +296,70 @@ static NodePtr new_num(int val) {
 }
 
 static NodePtr get_expr(Token **rest);
+static Node *equality(Token **tok);
+static NodePtr relational(Token **rest);
+static Node *add(Token **rest);
 static NodePtr get_mul(Token **rest);
 static NodePtr get_unary(Token **rest);
 static NodePtr get_primary(Token **rest);
 
-// static NodePtr get_expr(Token **rest, Token *tok);
-// static NodePtr get_mul(Token **rest, Token *tok);
-// static NodePtr get_primary(Token **rest, Token *tok);
+static Node *get_expr(Token **tok) { return equality(tok); }
 
-// // expr = mul ("+" mul | "-" mul)*
-// static Node *get_expr(TokenList *rest, Token *tok) {
-//   Node *node;
-//   node = get_mul(&tok, tok);
+// equality = relational ("==" relational | "!=" relational)*
+static Node *equality(Token **tok) {
+  Node *node = relational(tok);
 
-//   for (;;) {
-//     if (equal(tok, "+")) {
-//       node = new_binary(ND_ADD, node, get_mul(&tok, tok->next));
-//       continue;
-//     }
+  for (;;) {
+    if (equal(*tok, "==")) {
+      (*tok) = (*tok)->next;
+      node = new_binary(ND_EQ, node, relational(tok));
+      continue;
+    }
 
-//     if (equal(tok, "-")) {
-//       node = new_binary(ND_SUB, node, get_mul(&tok, tok->next));
-//       continue;
-//     }
+    if (equal(*tok, "!=")) {
+      (*tok) = (*tok)->next;
+      node = new_binary(ND_NE, node, relational(tok));
+      continue;
+    }
 
-//     *rest = tok;
-//     return node;
-//   }
-// }
+    return node;
+  }
+}
 
-// // mul = primary ("*" primary | "/" primary)*
-// static Node *get_mul(Token **rest, Token *tok) {
-//   Node *node = get_primary(&tok, tok);
+// relational = add ("<" add | "<=" add | ">" add | ">=" add)*
+static NodePtr relational(Token **tok) {
+  Node *node = add(tok);
 
-//   for (;;) {
-//     if (equal(tok, "*")) {
-//       node = new_binary(ND_MUL, node, get_primary(&tok, tok->next));
-//       continue;
-//     }
+  for (;;) {
+    if (equal(*tok, "<")) {
+      (*tok) = (*tok)->next;
+      node = new_binary(ND_LT, node, add(tok));
+      continue;
+    }
 
-//     if (equal(tok, "/")) {
-//       node = new_binary(ND_DIV, node, get_primary(&tok, tok->next));
-//       continue;
-//     }
+    if (equal(*tok, "<=")) {
+      (*tok) = (*tok)->next;
+      node = new_binary(ND_LE, node, add(tok));
+      continue;
+    }
 
-//     *rest = tok;
-//     return node;
-//   }
-// }
+    if (equal(*tok, ">")) {
+      (*tok) = (*tok)->next;
+      node = new_binary(ND_LT, add(tok), node);
+      continue;
+    }
 
-// // primary = "(" expr ")" | num
-// static Node *get_primary(TokenList *rest, Token *tok) {
-//   if (equal(tok, "(")) {
-//     Node *node = get_expr(&tok, tok->next);
-//     *rest = skip(tok, ")");
-//     return node;
-//   }
-
-//   if (tok->kind == TK_NUM) {
-//     Node *node = new_num(tok->val);
-//     *rest = tok->next;
-//     return node;
-//   }
-
-//   error_tok(tok, "expected an expression");
-//   return NULL;
-// }
+    if (equal(*tok, ">=")) {
+      (*tok) = (*tok)->next;
+      node = new_binary(ND_LE, add(tok), node);
+      continue;
+    }
+    return node;
+  }
+}
 
 // expr = mul ("+" mul | "-" mul)*
-static Node *get_expr(Token **tok) {
+static Node *add(Token **tok) {
   Node *node = get_mul(tok);
   DEBUG("%s\n", char_kind(*tok));
   for (;;) {
@@ -385,15 +402,15 @@ static Node *get_mul(Token **tok) {
 
 // unary = ("+" | "-")? unary
 //       | primary
-static Node* get_unary(Token **tok){
-  if(equal(*tok,"+")){
-    (*tok)=(*tok)->next;
+static Node *get_unary(Token **tok) {
+  if (equal(*tok, "+")) {
+    (*tok) = (*tok)->next;
     return get_unary(tok);
   }
 
-  if (equal(*tok,"-")){
-    (*tok)=(*tok)->next;
-    return new_unary(ND_NEG,get_unary(tok));
+  if (equal(*tok, "-")) {
+    (*tok) = (*tok)->next;
+    return new_unary(ND_NEG, get_unary(tok));
   }
 
   return get_primary(tok);
@@ -451,6 +468,11 @@ static void gen_expr(Node *node) {
   case ND_MUL:
   case ND_DIV:
     break;
+  case ND_EQ:
+  case ND_NE:
+  case ND_LT:
+  case ND_LE:
+    break;
   }
 
   gen_expr(node->rhs);
@@ -474,6 +496,23 @@ static void gen_expr(Node *node) {
     return;
   case ND_NEG:
   case ND_NUM:
+    return;
+  case ND_EQ:
+  case ND_NE:
+  case ND_LT:
+  case ND_LE:
+    printf("  cmp %%rdi, %%rax\n");
+
+    if (node->kind == ND_EQ)
+      printf("  sete %%al\n");
+    else if (node->kind == ND_NE)
+      printf("  setne %%al\n");
+    else if (node->kind == ND_LT)
+      printf("  setl %%al\n");
+    else if (node->kind == ND_LE)
+      printf("  setle %%al\n");
+
+    printf("  movzb %%al, %%rax\n");
     return;
   }
 
