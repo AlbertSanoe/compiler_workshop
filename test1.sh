@@ -1,3 +1,1 @@
-clang tmp.s -o tmp
-./tmp
-echo $?
+./bin/chibicc "$1" > tmp.s

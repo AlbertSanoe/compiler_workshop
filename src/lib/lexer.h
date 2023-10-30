@@ -4,6 +4,7 @@
 #include <stdbool.h> /* bool */
 
 typedef enum {
+  TK_IDENT, // Identifiers
   TK_PUNCT, // Keywords or punctuators
   TK_NUM,   // Integer literals
   TK_EOF,   // End-of-file markers
@@ -30,6 +31,6 @@ extern char *current_input;
 
 bool equal(const Token *tok, char *op);
 Token *skip(Token *tok, char *s);
-TokenList tokenize();
+TokenList tokenize(char*p);
 
 #endif

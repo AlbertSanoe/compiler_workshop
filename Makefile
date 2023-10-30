@@ -11,7 +11,9 @@ test: read
 	@bash ./test.sh
 
 test1: tmp.s
-	@bash test1.sh
+	clang tmp.s -o tmp
+	./tmp
+	echo $?
 
 clean:
 	rm -f read *.o *~ tmp*

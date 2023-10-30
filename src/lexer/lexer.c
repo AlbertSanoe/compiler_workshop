@@ -14,6 +14,8 @@ static const char *char_kind(TokenPtr ptr) {
     return "TK_NUM";
   case TK_EOF:
     return "TK_EOF";
+  case TK_IDENT:
+    return "TK_IDENT";
   }
 }
 
@@ -37,12 +39,12 @@ Token *skip(Token *tok, char *s) {
   return tok->next;
 }
 
-// Ensure that the current token is TK_NUM.
-static int get_number(Token *tok) {
-  if (tok->kind != TK_NUM)
-    error_tok(tok, "expected a number");
-  return tok->val;
-}
+// // Ensure that the current token is TK_NUM.
+// static int get_number(Token *tok) {
+//   if (tok->kind != TK_NUM)
+//     error_tok(tok, "expected a number");
+//   return tok->val;
+// }
 
 // Create a new token.
 static TokenPtr new_token(TokenKind kind, char *start, char *end) {
@@ -67,8 +69,8 @@ static int read_punct(char *p) {
 }
 
 // Tokenize `p` and returns new tokens.
-TokenList tokenize() {
-  char *p = current_input;
+TokenList tokenize(char*p) {
+  current_input=p;
   Token head = {};
   head.next = NULL;
   TokenPtr cur = &head;
@@ -87,6 +89,13 @@ TokenList tokenize() {
       char *q = p;
       cur->val = strtoul(p, &p, 10);
       cur->len = p - q;
+      continue;
+    }
+
+    // Identifier
+    if ('a' <= *p && *p <= 'z'){
+      cur = cur->next = new_token(TK_IDENT, p, p + 1);
+      p++;
       continue;
     }
 

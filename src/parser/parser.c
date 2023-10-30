@@ -1,10 +1,9 @@
 #include <stdlib.h>
 
-#include "../lib/err.h"
-#include "../lib/parser.h"
-#include "../lib/lexer.h"
 #include "../lib/debug.h"
-
+#include "../lib/err.h"
+#include "../lib/lexer.h"
+#include "../lib/parser.h"
 
 void debug_node(NodePtr node_ptr) {
   if (node_ptr == NULL) {
@@ -36,6 +35,10 @@ void debug_node(NodePtr node_ptr) {
   case ND_NE:
   case ND_LT:
   case ND_LE:
+    break;
+  case ND_ASSIGN:
+  case ND_EXPR_STMT:
+  case ND_VAR:
     break;
   }
 }
@@ -75,9 +78,47 @@ static NodePtr new_num(int val) {
   return node;
 }
 
+static NodePtr new_var_node(char name) {
+  NodePtr node = new_node(ND_VAR);
+  node->name = name;
+  return node;
+}
 
+// program = stmt*
+Node *parse(Token **tok) {
+  Node head = {};
+  Node *cur = &head;
+  while ((*tok)->kind != TK_EOF) {
+    cur->next = stmt(tok);
+    cur = cur->next;
+  }
+  return head.next;
+}
 
-Node *get_expr(Token **tok) { return equality(tok); }
+// stmt = expr-stmt
+Node *stmt(Token **tok) { return expr_stmt(tok); }
+
+// expr-stmt = expr ";"
+Node *expr_stmt(Token **tok) {
+  Node *node = new_unary(ND_EXPR_STMT, get_expr(tok));
+  (*tok) = (*tok)->next;
+  (*tok) = skip(*tok, ";");
+  return node;
+}
+
+// expr = assign
+Node *get_expr(Token **tok) { return assign(tok); }
+
+// assign = equality ("=" assign)?
+Node *assign(Token **tok) {
+  Node *node = equality(tok);
+  if (equal(*tok, "=")) {
+    (*tok) = (*tok)->next;
+    node = new_binary(ND_ASSIGN, node, assign(tok));
+  }
+
+  return node;
+}
 
 // equality = relational ("==" relational | "!=" relational)*
 Node *equality(Token **tok) {
@@ -190,7 +231,7 @@ Node *get_unary(Token **tok) {
   return get_primary(tok);
 }
 
-// primary = "(" expr ")" | num
+// primary = "(" expr ")" | num | ident
 Node *get_primary(Token **tok) {
   if (equal(*tok, "(")) {
     *tok = (*tok)->next;
@@ -205,6 +246,12 @@ Node *get_primary(Token **tok) {
     Node *node = new_num((*tok)->val);
     *tok = (*tok)->next;
     DEBUG("%s\n", char_kind(*tok));
+    return node;
+  }
+
+  if ((*tok)->kind == TK_IDENT) {
+    Node *node = new_var_node(*((*tok)->loc));
+    *tok = (*tok)->next;
     return node;
   }
 

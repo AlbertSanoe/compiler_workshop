@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdio.h>
 
 #include "../lib/err.h"
@@ -19,6 +20,17 @@ static void pop(const char *arg) {
   depth--;
 }
 
+// Compute the absolute address of a given node.
+// It's an error if a given node does not reside in memory.
+static void gen_addr(Node *node) {
+  if (node->kind == ND_VAR) {
+    int offset = (node->name - 'a' + 1) * 8;
+    printf("  lea %d(%%rbp), %%rax\n", -offset);
+    return;
+  }
+  error("not an lvalue");
+}
+
 void gen_expr(Node *node) {
   switch (node->kind) {
   case ND_NUM:
@@ -27,6 +39,17 @@ void gen_expr(Node *node) {
   case ND_NEG:
     gen_expr(node->lhs);
     printf("  neg %%rax\n");
+    return;
+  case ND_VAR:
+    gen_addr(node);
+    printf("  mov (%%rax), %%rax\n");
+    return;
+  case ND_ASSIGN:
+    gen_addr(node->lhs);
+    push();
+    gen_expr(node->rhs);
+    pop("%rdi");
+    printf("  mov %%rax, (%%rdi)\n");
     return;
   case ND_ADD:
   case ND_SUB:
@@ -37,6 +60,8 @@ void gen_expr(Node *node) {
   case ND_NE:
   case ND_LT:
   case ND_LE:
+    break;
+  case ND_EXPR_STMT:
     break;
   }
 
@@ -79,7 +104,39 @@ void gen_expr(Node *node) {
 
     printf("  movzb %%al, %%rax\n");
     return;
+  case ND_ASSIGN:
+  case ND_EXPR_STMT:
+  case ND_VAR:
+    break;
   }
 
   error("invalid expression");
+}
+
+static void gen_stmt(Node *node) {
+  if (node->kind == ND_EXPR_STMT) {
+    gen_expr(node->lhs);
+    return;
+  }
+
+  error("invalid statement");
+}
+
+void codegen(Node *node) {
+  printf("  .globl main\n");
+  printf("main:\n");
+
+  // Prologue
+  printf("  push %%rbp\n");
+  printf("  mov %%rsp, %%rbp\n");
+  printf("  sub $208, %%rsp\n");
+
+  for (Node *n = node; n; n = n->next) {
+    gen_stmt(n);
+    assert(depth == 0);
+  }
+
+  printf("  mov %%rbp, %%rsp\n");
+  printf("  pop %%rbp\n");
+  printf("  ret\n");
 }

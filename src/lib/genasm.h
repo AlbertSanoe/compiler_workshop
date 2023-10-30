@@ -7,4 +7,6 @@ extern int depth;
 
 void gen_expr(Node *node);
 
+void codegen(Node *node);
+
 #endif
