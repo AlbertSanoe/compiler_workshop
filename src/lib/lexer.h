@@ -32,6 +32,4 @@ bool equal(const Token *tok, char *op);
 Token *skip(Token *tok, char *s);
 TokenList tokenize();
 
-extern int dddd;
-
 #endif
