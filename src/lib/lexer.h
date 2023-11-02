@@ -5,7 +5,7 @@
 
 typedef enum {
   TK_IDENT, // Identifiers
-  TK_PUNCT, // Keywords or punctuators
+  TK_PUNCT, // punctuators
   TK_NUM,   // Integer literals
   TK_EOF,   // End-of-file markers
 } TokenKind;
@@ -31,6 +31,6 @@ extern char *current_input;
 
 bool equal(const Token *tok, char *op);
 Token *skip(Token *tok, char *s);
-TokenList tokenize(char*p);
+TokenList tokenize(char*input);
 
 #endif

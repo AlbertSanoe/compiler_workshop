@@ -1,9 +1,9 @@
-#include <ctype.h>   /* isspace, isdigit */
+#include <ctype.h> /* isspace, isdigit */
 #include <stdbool.h>
 #include <string.h>
 
-#include "../lib/lexer.h"
 #include "../lib/err.h"
+#include "../lib/lexer.h"
 
 // test
 static const char *char_kind(TokenPtr ptr) {
@@ -20,9 +20,9 @@ static const char *char_kind(TokenPtr ptr) {
 }
 
 // Current token
-Token *current_token;
+// Token *current_token;
 
-// Input program
+// Input string
 char *current_input;
 
 // Consumes the current token if it matches `s`.
@@ -39,13 +39,6 @@ Token *skip(Token *tok, char *s) {
   return tok->next;
 }
 
-// // Ensure that the current token is TK_NUM.
-// static int get_number(Token *tok) {
-//   if (tok->kind != TK_NUM)
-//     error_tok(tok, "expected a number");
-//   return tok->val;
-// }
-
 // Create a new token.
 static TokenPtr new_token(TokenKind kind, char *start, char *end) {
   TokenPtr tok = calloc(1, sizeof(Token));
@@ -59,6 +52,14 @@ static bool startswith(char *p, char *q) {
   return strncmp(p, q, strlen(q)) == 0;
 }
 
+// Returns true if c is valid as the first character of an identifier.
+static bool is_ident1(char c) {
+  return ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || c == '_';
+}
+
+// Returns true if c is valid as a non-first character of an identifier.
+static bool is_ident2(char c) { return is_ident1(c) || ('0' <= c && c <= '9'); }
+
 // Read a punctuator token from p and returns its length.
 static int read_punct(char *p) {
   if (startswith(p, "==") || startswith(p, "!=") || startswith(p, "<=") ||
@@ -69,8 +70,8 @@ static int read_punct(char *p) {
 }
 
 // Tokenize `p` and returns new tokens.
-TokenList tokenize(char*p) {
-  current_input=p;
+TokenList tokenize(char *p) {
+  current_input = p;
   Token head = {};
   head.next = NULL;
   TokenPtr cur = &head;
@@ -93,9 +94,12 @@ TokenList tokenize(char*p) {
     }
 
     // Identifier
-    if ('a' <= *p && *p <= 'z'){
-      cur = cur->next = new_token(TK_IDENT, p, p + 1);
-      p++;
+    if (is_ident1(*p)) {
+      char *start = p;
+      do {
+        p++;
+      } while (is_ident2(*p));
+      cur = cur->next = new_token(TK_IDENT, start, p);
       continue;
     }
 

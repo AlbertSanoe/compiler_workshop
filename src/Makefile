@@ -1,5 +1,5 @@
 # compile option
-CC = gcc
+CC = clang
 CFLAGS=-c -std=c11 -g
 LDFLAGS=-lm
 WFLAGS =-Wall

@@ -7,6 +7,15 @@
 // Parser
 //
 
+// Local variable
+struct Obj {
+  struct Obj *next;
+  char *name; // variable name
+  int offset; // Offset from RBP
+};
+
+typedef struct Obj Obj;
+
 typedef enum {
   ND_ADD,       // +
   ND_SUB,       // -
@@ -25,19 +34,28 @@ typedef enum {
 
 // AST node type
 struct Node {
-  NodeKind kind;    // Node kind
+  NodeKind kind;     // Node kind
   struct Node *next; // Next Node
-  struct Node *lhs; // Left-hand side
-  struct Node *rhs; // Right-hand side
-  char name;        // used if kind == ND_VAR
-  int val;          // Used if kind == ND_NUM
+  struct Node *lhs;  // Left-hand side
+  struct Node *rhs;  // Right-hand side
+  Obj *var;          // used if kind == ND_VAR
+  int val;           // Used if kind == ND_NUM
 };
 
 typedef struct Node Node;
 typedef struct Node *NodePtr;
 typedef struct Node *NodeRootPtr;
 
-Node *parse(Token **tok);
+// Function
+struct Function {
+  Node *body;
+  Obj *locals;
+  int stack_size;
+};
+
+typedef struct Function Function;
+
+Function *parse(Token **tok);
 
 Node *get_expr(Token **tok);
 

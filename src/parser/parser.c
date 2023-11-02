@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <string.h>
 
 #include "../lib/debug.h"
 #include "../lib/err.h"
@@ -53,6 +54,19 @@ void debug_tree(NodeRootPtr root) {
   printf("\n");
 }
 
+// All local variable instances created during parsing are
+// accumulated to this list.
+Obj *locals;
+
+// Find a local variable by name.
+static Obj *find_var(Token *tok) {
+  for (Obj *var = locals; var; var = var->next)
+    if (strlen(var->name) == tok->len &&
+        !strncmp(tok->loc, var->name, tok->len))
+      return var;
+  return NULL;
+}
+
 static NodePtr new_node(NodeKind kind) {
   NodePtr node = calloc(1, sizeof(Node));
   node->kind = kind;
@@ -78,21 +92,32 @@ static NodePtr new_num(int val) {
   return node;
 }
 
-static NodePtr new_var_node(char name) {
-  NodePtr node = new_node(ND_VAR);
-  node->name = name;
+static Node *new_var_node(Obj *var) {
+  Node *node = new_node(ND_VAR);
+  node->var = var;
   return node;
 }
 
+static Obj *new_lvar(char *name) {
+  Obj *var = calloc(1, sizeof(Obj));
+  var->name = name;
+  var->next = locals;
+  locals = var;
+  return var;
+}
+
 // program = stmt*
-Node *parse(Token **tok) {
+Function *parse(Token **tok) {
   Node head = {};
   Node *cur = &head;
-  while ((*tok)->kind != TK_EOF) {
-    cur->next = stmt(tok);
-    cur = cur->next;
-  }
-  return head.next;
+
+  while ((*tok)->kind != TK_EOF)
+    cur = cur->next = stmt(tok);
+
+  Function *prog = calloc(1, sizeof(Function));
+  prog->body = head.next;
+  prog->locals = locals;
+  return prog;
 }
 
 // stmt = expr-stmt
@@ -183,13 +208,11 @@ Node *add(Token **tok) {
       node = new_binary(ND_ADD, node, get_mul(tok));
       continue;
     }
-
     if (equal(*tok, "-")) {
       (*tok) = (*tok)->next;
       node = new_binary(ND_SUB, node, get_mul(tok));
       continue;
     }
-
     return node;
   }
 }
@@ -250,9 +273,16 @@ Node *get_primary(Token **tok) {
   }
 
   if ((*tok)->kind == TK_IDENT) {
-    Node *node = new_var_node(*((*tok)->loc));
+    Obj *var = find_var(*tok);
+    if (!var) {
+      char *val_dup = malloc((*tok)->len);
+      // Copy the string
+      val_dup = strncpy(val_dup, (*tok)->loc, (*tok)->len);
+      var = new_lvar(val_dup);
+    }
+
     *tok = (*tok)->next;
-    return node;
+    return new_var_node(var);
   }
 
   error_tok(*tok, "expected an expression");
